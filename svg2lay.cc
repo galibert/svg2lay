@@ -410,7 +410,7 @@ int main(int argc, char **argv)
     if(seen.find(n) != seen.end())
       continue;
     seen.insert(n);
-    fprintf(ofd, "<element name=\"e-%s\" defstate=\"0\"><image file=\"%s.png\"/></element>\n", n.c_str(), n.c_str());
+    fprintf(ofd, "<element name=\"e-%s\" defstate=\"0\"><image state=\"1\" file=\"%s.png\"/></element>\n", n.c_str(), n.c_str());
   }
   
   fprintf(ofd, "<view name=\"lcd\">\n  <bounds x=\"0\" y=\"0\" width=\"%d\" height=\"%d\"/>\n", ssx, ssy);
