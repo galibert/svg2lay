@@ -3,10 +3,6 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
-#include <sys/types.h>
-#include <sys/stat.h>
-#include <fcntl.h>
-#include <unistd.h>
 #include <zlib.h>
 
 #include <librsvg/rsvg.h>
@@ -50,28 +46,28 @@ static void w32(unsigned char *p, int l)
   p[3] = l;
 }
 
-static void wchunk(int fd, unsigned int type, unsigned char *p, unsigned int l)
+static void wchunk(FILE *fd, unsigned int type, unsigned char *p, unsigned int l)
 {
   unsigned char v[8];
   unsigned int crc;
   w32(v, l);
   w32(v+4, type);
-  write(fd, v, 8);
+  fwrite(v, 1, 8, fd);
   crc = crc32(0, v+4, 4);
   if(l) {
-    write(fd, p, l);
+    fwrite(p, 1, l, fd);
     crc = crc32(crc, p, l);
   }
   w32(v, crc);
-  write(fd, v, 4);
+  fwrite(v, 1, 4, fd);
 }
 
 void png_write(const char *name, const void *data, int width, int height, bool has_alpha)
 {
   char msg[4096];
   sprintf(msg, "Error opening %s for writing", name);
-  int fd = open(name, O_WRONLY|O_CREAT|O_TRUNC, 0666);
-  if(fd<0) {
+  FILE *fd = fopen(name, "wb");
+  if(!fd) {
     perror(msg);
     exit(1);
   }
@@ -91,7 +87,7 @@ void png_write(const char *name, const void *data, int width, int height, bool h
   unsigned long sz = (int)((width*ps+1)*height*1.1+12);
   unsigned char *cdata = new unsigned char[sz];
 
-  write(fd, "\x89\x50\x4E\x47\x0D\x0A\x1A\x0A", 8);
+  fwrite("\x89\x50\x4E\x47\x0D\x0A\x1A\x0A", 1, 8, fd);
 
   w32(cdata, width);
   w32(cdata+4, height);
@@ -105,7 +101,7 @@ void png_write(const char *name, const void *data, int width, int height, bool h
   compress(cdata, &sz, image, (width*ps+1)*height);
   wchunk(fd, 0x49444154L, cdata, sz); // IDAT
   wchunk(fd, 0x49454E44L, 0, 0); // IEND
-  close(fd);
+  fclose(fd);
 
   delete[] cdata;
   delete[] image;
@@ -342,18 +338,19 @@ int main(int argc, char **argv)
   const char *fname = argv[1];
 
   sprintf(buf, "Open %s", fname);
-  int fd = open(fname, O_RDONLY);
-  if(fd<0) {
+  FILE *fd = fopen(fname, "rb");
+  if(!fd) {
     perror(buf);
     exit(2);
   }
 
-  int size = lseek(fd, 0, SEEK_END);
-  lseek(fd, 0, SEEK_SET);
+  fseek(fd, 0, SEEK_END);
+  int size = ftell(fd);
+  fseek(fd, 0, SEEK_SET);
 
   svg.resize(size);
-  read(fd, &svg[0], size);
-  close(fd);
+  fread(&svg[0], 1, size, fd);
+  fclose(fd);
 
   find_tags_titles(svg, objects);
 
