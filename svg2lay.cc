@@ -292,10 +292,46 @@ void generate_diff(unsigned char *destimg, const unsigned char *cimg, const unsi
   }
 }
 
+string find_tag(const vector<char> &svg, const char *name)
+{
+  int tlen = strlen(name);
+  int len = svg.size();
+  for(int i=0; i < len-tlen; i++) {
+    if(!memcmp(&svg[i], name, tlen) && (svg[i+tlen] == ' ' || svg[i+tlen] == '=')) {
+      int pos = i+tlen;
+      while(pos < len && svg[pos] == ' ')
+	pos++;
+      if(pos >= len || svg[pos] != '=')
+	continue;
+      pos++;
+      while(pos < len && svg[pos] == ' ')
+	pos++;
+      if(pos >= len || svg[pos] != '"')
+	continue;
+      pos++;
+      int spos = pos;
+      while(pos < len && svg[pos] != '"')
+	pos++;
+      if(pos >= len)
+	continue;
+      return string(&svg[spos], pos-spos);
+    }
+  }
+  printf("value %s not found in svg\n", name);
+  exit(1);
+}
+
+void find_size(const vector<char> &svg, int &sx, int &sy)
+{
+  sx = int(strtod(find_tag(svg, "width").c_str(), 0) + 0.5);
+  sy = int(strtod(find_tag(svg, "height").c_str(), 0) + 0.5);
+  printf("sx=%d sy=%d\n", sx, sy);
+}
+
 int main(int argc, char **argv)
 {
-  if(argc != 1) {
-    fprintf(stderr, "Usage:\n%s\n", argv[0]);
+  if(argc != 4) {
+    fprintf(stderr, "Usage:\n%s file.svg ratio output-dir\n", argv[0]);
     exit(1);
   }
 
@@ -303,18 +339,7 @@ int main(int argc, char **argv)
   vector<char> svg;
   list<object_entry> objects;
   vector<unsigned char> pbm;
-  const char *fname = "dm53.svg";
-
-  int sx = 6808;
-  int sy = 9098;
-  int ratio = 12;
-  int ssx = sx/ratio;
-  int ssy = sy/ratio;
-  const char *destdir = "dm53";
-
-  unsigned char *bgimg = (unsigned char *)malloc(3*ssx*ssy);
-  unsigned char *cimg = (unsigned char *)malloc(3*ssx*ssy);
-  unsigned char *dimg = (unsigned char *)malloc(4*ssx*ssy);
+  const char *fname = argv[1];
 
   sprintf(buf, "Open %s", fname);
   int fd = open(fname, O_RDONLY);
@@ -331,6 +356,17 @@ int main(int argc, char **argv)
   close(fd);
 
   find_tags_titles(svg, objects);
+
+  int sx, sy;
+  find_size(svg, sx, sy);
+  int ratio = strtol(argv[2], 0, 0);
+  int ssx = sx/ratio;
+  int ssy = sy/ratio;
+  const char *destdir = argv[3];
+
+  unsigned char *bgimg = (unsigned char *)malloc(3*ssx*ssy);
+  unsigned char *cimg = (unsigned char *)malloc(3*ssx*ssy);
+  unsigned char *dimg = (unsigned char *)malloc(4*ssx*ssy);
 
   rsvg_set_default_dpi(72.0);
   cairo_surface_t *surface = cairo_image_surface_create(CAIRO_FORMAT_ARGB32, sx, sy);
@@ -374,7 +410,7 @@ int main(int argc, char **argv)
     if(seen.find(n) != seen.end())
       continue;
     seen.insert(n);
-    fprintf(ofd, "<element name=\"%s\" defstate=\"0\"><image file=\"%s.png\"/></element>\n", n.c_str(), n.c_str());
+    fprintf(ofd, "<element name=\"e-%s\" defstate=\"0\"><image file=\"%s.png\"/></element>\n", n.c_str(), n.c_str());
   }
   
   fprintf(ofd, "<view name=\"lcd\">\n  <bounds x=\"0\" y=\"0\" width=\"%d\" height=\"%d\"/>\n", ssx, ssy);
@@ -385,7 +421,7 @@ int main(int argc, char **argv)
     if(seen.find(n) != seen.end())
       continue;
     seen.insert(n);
-    fprintf(ofd, "  <bezel name=\"b-%s\" element=\"%s\"><bounds x=\"%d\" y=\"%d\" width=\"%d\" height=\"%d\"/></bezel>\n", n.c_str(), n.c_str(), i->x0, i->y0, i->nsx, i->nsy);
+    fprintf(ofd, "  <bezel name=\"%s\" element=\"e-%s\"><bounds x=\"%d\" y=\"%d\" width=\"%d\" height=\"%d\"/></bezel>\n", n.c_str(), n.c_str(), i->x0, i->y0, i->nsx, i->nsy);
   }
   fprintf(ofd, "</view>\n</mamelayout>\n");
   fclose(ofd);
