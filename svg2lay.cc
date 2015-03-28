@@ -336,6 +336,15 @@ int main(int argc, char **argv)
   list<object_entry> objects;
   vector<unsigned char> pbm;
   const char *fname = argv[1];
+  char *basename;
+  char *start = strrchr(argv[1], '/');
+  if(start)
+    basename = strdup(start+1);
+  else
+    basename = strdup(argv[1]);
+  start = strchr(basename, '.');
+  if(start)
+    *start = 0;
 
   sprintf(buf, "Open %s", fname);
   FILE *fd = fopen(fname, "rb");
@@ -410,7 +419,7 @@ int main(int argc, char **argv)
     fprintf(ofd, "<element name=\"e-%s\" defstate=\"0\"><image state=\"1\" file=\"%s.png\"/></element>\n", n.c_str(), n.c_str());
   }
   
-  fprintf(ofd, "<view name=\"lcd\">\n  <bounds x=\"0\" y=\"0\" width=\"%d\" height=\"%d\"/>\n", ssx, ssy);
+  fprintf(ofd, "<view name=\"svg2lay %s\">\n  <bounds x=\"0\" y=\"0\" width=\"%d\" height=\"%d\"/>\n", basename, ssx, ssy);
   fprintf(ofd, "  <bezel element=\"bg\">\n    <bounds x=\"0\" y=\"0\" width=\"%d\" height=\"%d\"/>\n  </bezel>\n", ssx, ssy);
   seen.clear();
   for(list<object_entry>::iterator i = objects.begin(); i != objects.end(); i++) {
